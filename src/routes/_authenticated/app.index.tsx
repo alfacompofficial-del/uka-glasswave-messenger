@@ -9,7 +9,9 @@ export const Route = createFileRoute("/_authenticated/app/")({
           <MessageSquare className="h-8 w-8 text-white" />
         </div>
         <h2 className="mt-4 text-xl font-bold">Выберите чат</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Чтобы начать общение, выберите чат слева или создайте новый</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Чтобы начать общение, выберите чат слева или создайте новый
+        </p>
       </div>
     </div>
   ),

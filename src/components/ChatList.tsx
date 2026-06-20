@@ -34,18 +34,23 @@ export function ChatList() {
         .from("conversation_members")
         .select("conversation_id, conversations(id, type, name, avatar_url, updated_at)")
         .eq("user_id", user.id);
-      const convs = (members ?? []).map((m: any) => m.conversations).filter(Boolean);
+      const convs = (members ?? []).map((m: unknown) => m.conversations).filter(Boolean);
 
       // Fetch other-party for direct chats
-      const directIds = convs.filter((c: any) => c.type === "direct").map((c: any) => c.id);
-      const otherById: Record<string, { name: string; avatar?: string | null; firstName?: string; lastName?: string }> = {};
+      const directIds = convs.filter((c: unknown) => c.type === "direct").map((c: unknown) => c.id);
+      const otherById: Record<
+        string,
+        { name: string; avatar?: string | null; firstName?: string; lastName?: string }
+      > = {};
       if (directIds.length) {
         const { data: rows } = await supabase
           .from("conversation_members")
-          .select("conversation_id, user_id, profiles:profiles!inner(first_name, last_name, avatar_url, username)")
+          .select(
+            "conversation_id, user_id, profiles:profiles!inner(first_name, last_name, avatar_url, username)",
+          )
           .in("conversation_id", directIds)
           .neq("user_id", user.id);
-        (rows ?? []).forEach((r: any) => {
+        (rows ?? []).forEach((r: unknown) => {
           const fn = r.profiles.first_name || "";
           const ln = r.profiles.last_name || "";
           otherById[r.conversation_id] = {
@@ -58,8 +63,11 @@ export function ChatList() {
       }
 
       // Fetch last message for each conversation
-      const convIds = convs.map((c: any) => c.id);
-      const lastMsgById: Record<string, { content: string; sender_id: string; created_at: string; is_read: boolean }> = {};
+      const convIds = convs.map((c: unknown) => c.id);
+      const lastMsgById: Record<
+        string,
+        { content: string; sender_id: string; created_at: string; is_read: boolean }
+      > = {};
 
       if (convIds.length) {
         for (const cid of convIds) {
@@ -82,12 +90,11 @@ export function ChatList() {
       }
 
       return convs
-        .map((c: any) => {
+        .map((c: unknown) => {
           const other = otherById[c.id];
           const lastMsg = lastMsgById[c.id];
-          const displayName = c.type === "direct"
-            ? other?.name ?? "Чат"
-            : c.name ?? "Без имени";
+          const displayName =
+            c.type === "direct" ? (other?.name ?? "Чат") : (c.name ?? "Без имени");
 
           return {
             ...c,
@@ -101,7 +108,7 @@ export function ChatList() {
             last_message_read: lastMsg?.is_read ?? true,
           };
         })
-        .sort((a: any, b: any) => {
+        .sort((a: unknown, b: unknown) => {
           const at = new Date(a.last_message_time || a.updated_at || 0).getTime();
           const bt = new Date(b.last_message_time || b.updated_at || 0).getTime();
           return bt - at;
@@ -111,8 +118,11 @@ export function ChatList() {
 
   const filtered = useMemo(() => {
     let list = conversations;
-    if (folder !== "all") list = list.filter((c: any) => c.type === folder);
-    if (search) list = list.filter((c: any) => c.display_name.toLowerCase().includes(search.toLowerCase()));
+    if (folder !== "all") list = list.filter((c: unknown) => c.type === folder);
+    if (search)
+      list = list.filter((c: unknown) =>
+        c.display_name.toLowerCase().includes(search.toLowerCase()),
+      );
     return list;
   }, [conversations, folder, search]);
 
@@ -148,8 +158,10 @@ export function ChatList() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск чатов" className="pl-9 h-10"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск чатов"
+            className="pl-9 h-10"
           />
         </div>
         <div className="mt-3 flex gap-1.5 overflow-x-auto">
@@ -171,18 +183,26 @@ export function ChatList() {
 
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Нет чатов. Начните новый!</div>
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            Нет чатов. Начните новый!
+          </div>
         ) : (
-          filtered.map((c: any) => {
+          filtered.map((c: unknown) => {
             const active = params.conversationId === c.id;
-            const initials = (c.display_name as string).split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase();
+            const initials = (c.display_name as string)
+              .split(" ")
+              .map((s: string) => s[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase();
             const isMine = c.last_message_sender === user?.id;
             const hasUnread = !c.last_message_read && !isMine;
 
             // For direct chats: "Фамилия Имя" format at top
-            const displayTitle = c.type === "direct" && (c.display_last_name || c.display_first_name)
-              ? `${c.display_last_name} ${c.display_first_name}`.trim()
-              : c.display_name;
+            const displayTitle =
+              c.type === "direct" && (c.display_last_name || c.display_first_name)
+                ? `${c.display_last_name} ${c.display_first_name}`.trim()
+                : c.display_name;
 
             return (
               <Link
@@ -207,7 +227,9 @@ export function ChatList() {
                 <div className="flex-1 min-w-0">
                   {/* Row 1: name + time */}
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`font-semibold truncate text-[13px] leading-tight ${hasUnread ? "text-foreground" : "text-foreground/90"}`}>
+                    <span
+                      className={`font-semibold truncate text-[13px] leading-tight ${hasUnread ? "text-foreground" : "text-foreground/90"}`}
+                    >
                       {displayTitle}
                     </span>
                     <span className="text-[10px] text-muted-foreground shrink-0">
@@ -228,11 +250,18 @@ export function ChatList() {
                           )}
                         </span>
                       )}
-                      <span className={`text-xs truncate ${hasUnread ? "text-foreground/75 font-medium" : "text-muted-foreground"}`}>
-                        {c.last_message
-                          ? (c.last_message.startsWith("sticker:") ? "🎭 Стикер" : truncate(c.last_message))
-                          : <em className="opacity-50 not-italic">Нет сообщений</em>
-                        }
+                      <span
+                        className={`text-xs truncate ${hasUnread ? "text-foreground/75 font-medium" : "text-muted-foreground"}`}
+                      >
+                        {c.last_message ? (
+                          c.last_message.startsWith("sticker:") ? (
+                            "🎭 Стикер"
+                          ) : (
+                            truncate(c.last_message)
+                          )
+                        ) : (
+                          <em className="opacity-50 not-italic">Нет сообщений</em>
+                        )}
                       </span>
                     </div>
                     {hasUnread && (

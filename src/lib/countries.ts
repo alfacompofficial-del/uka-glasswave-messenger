@@ -1,4 +1,9 @@
-export interface Country { code: string; name: string; dial: string; flag: string }
+export interface Country {
+  code: string;
+  name: string;
+  dial: string;
+  flag: string;
+}
 
 export const COUNTRIES: Country[] = [
   { code: "UZ", name: "Uzbekistan", dial: "+998", flag: "🇺🇿" },
