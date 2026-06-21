@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Phone, Video, Info, Languages as LangIcon, Smile } from "lucide-react";
+import { Send, Phone, Video, Info, Languages as LangIcon, Smile, CheckCheck, Check } from "lucide-react";
 import { convertScript } from "@/lib/translit";
 import { toast } from "sonner";
 import { StickerPicker } from "@/components/StickerPicker";
@@ -15,6 +15,22 @@ export const Route = createFileRoute("/_authenticated/app/$conversationId")({
   component: ChatView,
 });
 
+type Profile = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  username?: string | null;
+};
+
+type Message = {
+  id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  profile?: Profile;
+};
+
 function ChatView() {
   const { conversationId } = Route.useParams();
   const { user } = useAuth();
@@ -22,7 +38,7 @@ function ChatView() {
   const [text, setText] = useState("");
   const [showStickers, setShowStickers] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const stickerBtnRef = useRef<HTMLButtonElement>(null);
+  const stickerBtnRef = useRef<HTMLDivElement>(null);
 
   const { data: conv } = useQuery({
     queryKey: ["conversation", conversationId],
@@ -42,24 +58,46 @@ function ChatView() {
       if (data?.type === "direct" && user) {
         const { data: other } = await supabase
           .from("conversation_members")
-          .select("user_id, profiles!inner(first_name, last_name, avatar_url, username)")
+          .select("user_id")
           .eq("conversation_id", conversationId)
           .neq("user_id", user.id)
           .maybeSingle();
-        if (other) {
-          const p: unknown = (other as unknown).profiles;
-          firstName = p.first_name || "";
-          lastName = p.last_name || "";
-          title = `${firstName} ${lastName}`.trim() || `@${p.username ?? "user"}`;
-          avatar = p.avatar_url;
-          subtitle = "Личный чат";
+        if (other?.user_id) {
+          const { data: p } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, avatar_url, username")
+            .eq("id", other.user_id)
+            .maybeSingle();
+          if (p) {
+            firstName = p.first_name ?? "";
+            lastName = p.last_name ?? "";
+            title = `${firstName} ${lastName}`.trim() || `@${p.username ?? "user"}`;
+            avatar = p.avatar_url;
+            subtitle = "Личный чат";
+          }
         }
       }
       return { ...data, title, firstName, lastName, avatar, subtitle };
     },
   });
 
-  const { data: messages = [] } = useQuery({
+  // Other member's last_read_at to compute read ticks for MY messages
+  const { data: otherLastRead } = useQuery({
+    queryKey: ["other-last-read", conversationId, user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from("conversation_members")
+        .select("last_read_at")
+        .eq("conversation_id", conversationId)
+        .neq("user_id", user.id)
+        .maybeSingle();
+      return data?.last_read_at ?? null;
+    },
+  });
+
+  const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ["messages", conversationId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -69,20 +107,32 @@ function ChatView() {
         .order("created_at", { ascending: true })
         .limit(200);
       if (error) throw error;
-      const senderIds = Array.from(new Set((data ?? []).map((m) => m.sender_id)));
-      const profilesById: Record<string, unknown> = {};
+      const rows = (data ?? []) as Message[];
+      const senderIds = Array.from(new Set(rows.map((m) => m.sender_id)));
+      const profilesById: Record<string, Profile> = {};
       if (senderIds.length) {
         const { data: profs } = await supabase
           .from("profiles")
           .select("id, first_name, last_name, avatar_url")
           .in("id", senderIds);
-        (profs ?? []).forEach((p) => {
-          profilesById[p.id] = p;
-        });
+        for (const p of (profs ?? []) as Profile[]) profilesById[p.id] = p;
       }
-      return (data ?? []).map((m) => ({ ...m, profile: profilesById[m.sender_id] }));
+      return rows.map((m) => ({ ...m, profile: profilesById[m.sender_id] }));
     },
   });
+
+  // Mark conversation as read whenever we open it or new messages arrive
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("conversation_members")
+      .update({ last_read_at: new Date().toISOString() })
+      .eq("conversation_id", conversationId)
+      .eq("user_id", user.id)
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["conversations", user.id] });
+      });
+  }, [conversationId, messages.length, user, queryClient]);
 
   useEffect(() => {
     const channel = supabase
@@ -97,17 +147,29 @@ function ChatView() {
         },
         () => queryClient.invalidateQueries({ queryKey: ["messages", conversationId] }),
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "conversation_members",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () =>
+          queryClient.invalidateQueries({
+            queryKey: ["other-last-read", conversationId, user?.id],
+          }),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId, queryClient]);
+  }, [conversationId, queryClient, user?.id]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length]);
 
-  // Close sticker picker on outside click
   useEffect(() => {
     if (!showStickers) return;
     function handleClick(e: MouseEvent) {
@@ -143,14 +205,13 @@ function ChatView() {
   }
 
   const initials =
-    (conv?.title as string | undefined)
+    conv?.title
       ?.split(" ")
-      .map((s) => s[0])
+      .map((s: string) => s[0] ?? "")
       .join("")
       .slice(0, 2)
       .toUpperCase() || "?";
 
-  // Build the header title: "Фамилия\nИмя" for direct chats
   const headerTitle =
     conv?.type === "direct" && (conv.lastName || conv.firstName)
       ? `${conv.lastName} ${conv.firstName}`.trim()
@@ -158,7 +219,6 @@ function ChatView() {
 
   return (
     <>
-      {/* Header */}
       <header className="h-16 px-5 glass-strong border-b border-border/40 flex items-center gap-3">
         <Avatar className="h-10 w-10">
           <AvatarImage src={conv?.avatar ?? undefined} />
@@ -168,14 +228,7 @@ function ChatView() {
         </Avatar>
         <div className="flex-1 min-w-0">
           <div className="font-semibold truncate leading-tight">{headerTitle}</div>
-          <div className="text-xs text-muted-foreground">
-            {conv?.subtitle ??
-              (conv?.type === "direct"
-                ? "Личный чат"
-                : conv?.type === "group"
-                  ? "Группа"
-                  : "Канал")}
-          </div>
+          <div className="text-xs text-muted-foreground">{conv?.subtitle}</div>
         </div>
         <button
           className="h-10 w-10 rounded-lg glass hover:neon-ring flex items-center justify-center"
@@ -199,15 +252,15 @@ function ChatView() {
         </button>
       </header>
 
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6 space-y-3">
-        {messages.map((m: unknown) => {
+        {messages.map((m) => {
           const mine = m.sender_id === user?.id;
           const senderInit =
             `${m.profile?.first_name?.[0] ?? ""}${m.profile?.last_name?.[0] ?? ""}`.toUpperCase() ||
             "?";
           const isSticker = m.content?.startsWith("sticker:");
           const stickerEmoji = isSticker ? m.content.replace("sticker:", "") : null;
+          const read = mine && !!otherLastRead && otherLastRead >= m.created_at;
 
           return (
             <div key={m.id} className={`flex gap-2 ${mine ? "justify-end" : ""}`}>
@@ -218,21 +271,21 @@ function ChatView() {
                 </Avatar>
               )}
               {isSticker ? (
-                // Sticker bubble – transparent, just the emoji
-                <div className={`flex flex-col items-${mine ? "end" : "start"} max-w-[120px]`}>
-                  <div
-                    className={`text-5xl leading-none select-none cursor-default hover:scale-110 transition-transform ${mine ? "self-end" : "self-start"}`}
-                    title="Стикер"
-                  >
+                <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[120px]`}>
+                  <div className="text-5xl leading-none select-none cursor-default hover:scale-110 transition-transform" title="Стикер">
                     {stickerEmoji}
                   </div>
-                  <div
-                    className={`mt-0.5 text-[10px] ${mine ? "text-muted-foreground text-right" : "text-muted-foreground"}`}
-                  >
+                  <div className="mt-0.5 text-[10px] text-muted-foreground flex items-center gap-1">
                     {new Date(m.created_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
+                    {mine &&
+                      (read ? (
+                        <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
+                      ) : (
+                        <Check className="h-3 w-3 opacity-70" />
+                      ))}
                   </div>
                 </div>
               ) : (
@@ -245,13 +298,18 @@ function ChatView() {
                 >
                   <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
                   <div
-                    className={`mt-1 text-[10px] flex items-center gap-1 justify-end ${mine ? "text-white/70" : "text-muted-foreground"}`}
+                    className={`mt-1 text-[10px] flex items-center gap-1 justify-end ${mine ? "text-white/80" : "text-muted-foreground"}`}
                   >
                     {new Date(m.created_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
-                    {mine && <span className="text-[var(--neon-cyan)] opacity-80">✓✓</span>}
+                    {mine &&
+                      (read ? (
+                        <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
+                      ) : (
+                        <Check className="h-3 w-3 opacity-80" />
+                      ))}
                   </div>
                 </div>
               )}
@@ -265,12 +323,10 @@ function ChatView() {
         )}
       </div>
 
-      {/* Composer */}
       <form
         onSubmit={send}
         className="p-4 glass-strong border-t border-border/40 flex gap-2 items-center relative"
       >
-        {/* Transliterate button */}
         <button
           type="button"
           onClick={() => setText((t) => convertScript(t))}
@@ -280,8 +336,7 @@ function ChatView() {
           <LangIcon className="h-4 w-4" />
         </button>
 
-        {/* Sticker button with picker */}
-        <div className="relative" ref={stickerBtnRef as unknown}>
+        <div className="relative" ref={stickerBtnRef}>
           <button
             type="button"
             onClick={() => setShowStickers((v) => !v)}
