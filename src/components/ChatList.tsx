@@ -79,31 +79,39 @@ export function ChatList() {
       if (directIds.length) {
         const { data: othersRaw } = await supabase
           .from("conversation_members")
-          .select(
-            "conversation_id, user_id, profiles!inner(first_name, last_name, avatar_url, username)",
-          )
+          .select("conversation_id, user_id")
           .in("conversation_id", directIds)
           .neq("user_id", user.id);
         const others = (othersRaw ?? []) as Array<{
           conversation_id: string;
-          profiles: {
-            first_name: string | null;
-            last_name: string | null;
-            avatar_url: string | null;
-            username: string | null;
-          };
+          user_id: string;
         }>;
+        const otherIds = Array.from(new Set(others.map((o) => o.user_id)));
+        const profById: Record<
+          string,
+          { first_name: string | null; last_name: string | null; avatar_url: string | null; username: string | null }
+        > = {};
+        if (otherIds.length) {
+          const { data: profs } = await supabase
+            .from("profiles")
+            .select("id, first_name, last_name, avatar_url, username")
+            .in("id", otherIds);
+          for (const p of profs ?? []) profById[p.id] = p;
+        }
         for (const r of others) {
-          const fn = r.profiles.first_name ?? "";
-          const ln = r.profiles.last_name ?? "";
+          const p = profById[r.user_id];
+          if (!p) continue;
+          const fn = p.first_name ?? "";
+          const ln = p.last_name ?? "";
           otherById[r.conversation_id] = {
-            name: `${fn} ${ln}`.trim() || `@${r.profiles.username ?? "user"}`,
-            avatar: r.profiles.avatar_url,
+            name: `${fn} ${ln}`.trim() || `@${p.username ?? "user"}`,
+            avatar: p.avatar_url,
             firstName: fn,
             lastName: ln,
           };
         }
       }
+
 
       // Last message + unread count per conversation
       const lastMsgById: Record<
