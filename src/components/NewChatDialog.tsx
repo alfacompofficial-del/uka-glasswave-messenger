@@ -24,13 +24,14 @@ export function NewChatDialog({
   const [results, setResults] = useState<
     {
       id: string;
-      first_name?: string;
-      last_name?: string;
-      username?: string;
-      phone?: string;
-      avatar_url?: string;
+      first_name: string | null;
+      last_name: string | null;
+      username: string | null;
+      phone: string | null;
+      avatar_url: string | null;
     }[]
   >([]);
+
   const [loading, setLoading] = useState(false);
 
   async function search() {
