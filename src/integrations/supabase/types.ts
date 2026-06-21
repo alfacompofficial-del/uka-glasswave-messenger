@@ -42,18 +42,21 @@ export type Database = {
         Row: {
           conversation_id: string
           joined_at: string
+          last_read_at: string
           role: string
           user_id: string
         }
         Insert: {
           conversation_id: string
           joined_at?: string
+          last_read_at?: string
           role?: string
           user_id: string
         }
         Update: {
           conversation_id?: string
           joined_at?: string
+          last_read_at?: string
           role?: string
           user_id?: string
         }
