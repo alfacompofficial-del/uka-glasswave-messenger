@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,112 +17,199 @@ const FOLDERS = [
 
 type Folder = (typeof FOLDERS)[number]["key"];
 
+type ConversationRow = {
+  id: string;
+  type: "direct" | "group" | "channel";
+  name: string | null;
+  avatar_url: string | null;
+  updated_at: string;
+};
+
+type ChatItem = ConversationRow & {
+  display_name: string;
+  display_first_name: string;
+  display_last_name: string;
+  display_avatar: string | null;
+  last_message: string | null;
+  last_message_sender: string | null;
+  last_message_time: string;
+  last_message_read: boolean; // for my sent messages: did the other read it
+  unread_count: number; // unread incoming for me
+};
+
 export function ChatList() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [folder, setFolder] = useState<Folder>("all");
   const [search, setSearch] = useState("");
   const [newChatOpen, setNewChatOpen] = useState(false);
   const params = useParams({ strict: false }) as { conversationId?: string };
 
-  const { data: conversations = [] } = useQuery({
+  const { data: conversations = [] } = useQuery<ChatItem[]>({
     queryKey: ["conversations", user?.id],
     enabled: !!user,
-    refetchInterval: 5000,
     queryFn: async () => {
       if (!user) return [];
       const { data: members } = await supabase
         .from("conversation_members")
-        .select("conversation_id, conversations(id, type, name, avatar_url, updated_at)")
+        .select(
+          "conversation_id, last_read_at, conversations(id, type, name, avatar_url, updated_at)",
+        )
         .eq("user_id", user.id);
-      const convs = (members ?? []).map((m: unknown) => m.conversations).filter(Boolean);
 
-      // Fetch other-party for direct chats
-      const directIds = convs.filter((c: unknown) => c.type === "direct").map((c: unknown) => c.id);
+      const rows = (members ?? []) as Array<{
+        conversation_id: string;
+        last_read_at: string;
+        conversations: ConversationRow | null;
+      }>;
+
+      const convs = rows
+        .map((m) => ({ conv: m.conversations, last_read_at: m.last_read_at }))
+        .filter((x): x is { conv: ConversationRow; last_read_at: string } => !!x.conv);
+
+      const convIds = convs.map((x) => x.conv.id);
+      if (convIds.length === 0) return [];
+
+      // Other party for direct chats
+      const directIds = convs.filter((x) => x.conv.type === "direct").map((x) => x.conv.id);
       const otherById: Record<
         string,
-        { name: string; avatar?: string | null; firstName?: string; lastName?: string }
+        { name: string; avatar: string | null; firstName: string; lastName: string }
       > = {};
       if (directIds.length) {
-        const { data: rows } = await supabase
+        const { data: othersRaw } = await supabase
           .from("conversation_members")
           .select(
-            "conversation_id, user_id, profiles:profiles!inner(first_name, last_name, avatar_url, username)",
+            "conversation_id, user_id, profiles!inner(first_name, last_name, avatar_url, username)",
           )
           .in("conversation_id", directIds)
           .neq("user_id", user.id);
-        (rows ?? []).forEach((r: unknown) => {
-          const fn = r.profiles.first_name || "";
-          const ln = r.profiles.last_name || "";
+        const others = (othersRaw ?? []) as Array<{
+          conversation_id: string;
+          profiles: {
+            first_name: string | null;
+            last_name: string | null;
+            avatar_url: string | null;
+            username: string | null;
+          };
+        }>;
+        for (const r of others) {
+          const fn = r.profiles.first_name ?? "";
+          const ln = r.profiles.last_name ?? "";
           otherById[r.conversation_id] = {
             name: `${fn} ${ln}`.trim() || `@${r.profiles.username ?? "user"}`,
             avatar: r.profiles.avatar_url,
             firstName: fn,
             lastName: ln,
           };
-        });
-      }
-
-      // Fetch last message for each conversation
-      const convIds = convs.map((c: unknown) => c.id);
-      const lastMsgById: Record<
-        string,
-        { content: string; sender_id: string; created_at: string; is_read: boolean }
-      > = {};
-
-      if (convIds.length) {
-        for (const cid of convIds) {
-          const { data: msgs } = await supabase
-            .from("messages")
-            .select("id, content, sender_id, created_at")
-            .eq("conversation_id", cid)
-            .order("created_at", { ascending: false })
-            .limit(1);
-          if (msgs && msgs.length > 0) {
-            const msg = msgs[0];
-            lastMsgById[cid] = {
-              content: msg.content,
-              sender_id: msg.sender_id,
-              created_at: msg.created_at,
-              is_read: msg.sender_id === user.id,
-            };
-          }
         }
       }
 
-      return convs
-        .map((c: unknown) => {
-          const other = otherById[c.id];
-          const lastMsg = lastMsgById[c.id];
-          const displayName =
-            c.type === "direct" ? (other?.name ?? "Чат") : (c.name ?? "Без имени");
+      // Last message + unread count per conversation
+      const lastMsgById: Record<
+        string,
+        { content: string; sender_id: string; created_at: string } | undefined
+      > = {};
+      const unreadById: Record<string, number> = {};
 
-          return {
-            ...c,
-            display_name: displayName,
-            display_first_name: c.type === "direct" ? other?.firstName || "" : "",
-            display_last_name: c.type === "direct" ? other?.lastName || "" : "",
-            display_avatar: c.type === "direct" ? other?.avatar : c.avatar_url,
-            last_message: lastMsg?.content ?? null,
-            last_message_sender: lastMsg?.sender_id ?? null,
-            last_message_time: lastMsg?.created_at ?? c.updated_at,
-            last_message_read: lastMsg?.is_read ?? true,
-          };
-        })
-        .sort((a: unknown, b: unknown) => {
-          const at = new Date(a.last_message_time || a.updated_at || 0).getTime();
-          const bt = new Date(b.last_message_time || b.updated_at || 0).getTime();
-          return bt - at;
-        });
+      // Other party's last_read_at to know if MY messages were read
+      const otherLastReadById: Record<string, string> = {};
+      if (directIds.length) {
+        const { data: orRaw } = await supabase
+          .from("conversation_members")
+          .select("conversation_id, last_read_at")
+          .in("conversation_id", directIds)
+          .neq("user_id", user.id);
+        for (const r of (orRaw ?? []) as Array<{
+          conversation_id: string;
+          last_read_at: string;
+        }>) {
+          otherLastReadById[r.conversation_id] = r.last_read_at;
+        }
+      }
+
+      await Promise.all(
+        convs.map(async ({ conv, last_read_at }) => {
+          const { data: msgs } = await supabase
+            .from("messages")
+            .select("id, content, sender_id, created_at")
+            .eq("conversation_id", conv.id)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (msgs && msgs.length > 0) {
+            lastMsgById[conv.id] = msgs[0] as {
+              id: string;
+              content: string;
+              sender_id: string;
+              created_at: string;
+            };
+          }
+          const { count } = await supabase
+            .from("messages")
+            .select("id", { count: "exact", head: true })
+            .eq("conversation_id", conv.id)
+            .neq("sender_id", user.id)
+            .gt("created_at", last_read_at);
+          unreadById[conv.id] = count ?? 0;
+        }),
+      );
+
+      const items: ChatItem[] = convs.map(({ conv }) => {
+        const other = otherById[conv.id];
+        const lastMsg = lastMsgById[conv.id];
+        const displayName =
+          conv.type === "direct" ? (other?.name ?? "Чат") : (conv.name ?? "Без имени");
+        const otherRead = otherLastReadById[conv.id];
+        const lastMessageRead =
+          !!lastMsg && lastMsg.sender_id === user.id && !!otherRead && otherRead >= lastMsg.created_at;
+        return {
+          ...conv,
+          display_name: displayName,
+          display_first_name: conv.type === "direct" ? (other?.firstName ?? "") : "",
+          display_last_name: conv.type === "direct" ? (other?.lastName ?? "") : "",
+          display_avatar: conv.type === "direct" ? (other?.avatar ?? null) : conv.avatar_url,
+          last_message: lastMsg?.content ?? null,
+          last_message_sender: lastMsg?.sender_id ?? null,
+          last_message_time: lastMsg?.created_at ?? conv.updated_at,
+          last_message_read: lastMessageRead,
+          unread_count: unreadById[conv.id] ?? 0,
+        };
+      });
+
+      items.sort(
+        (a, b) =>
+          new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime(),
+      );
+      return items;
     },
   });
 
+  // Realtime: refresh on any new message or read-state change
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`chatlist:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        () => queryClient.invalidateQueries({ queryKey: ["conversations", user.id] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "conversation_members" },
+        () => queryClient.invalidateQueries({ queryKey: ["conversations", user.id] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
+
   const filtered = useMemo(() => {
     let list = conversations;
-    if (folder !== "all") list = list.filter((c: unknown) => c.type === folder);
+    if (folder !== "all") list = list.filter((c) => c.type === folder);
     if (search)
-      list = list.filter((c: unknown) =>
-        c.display_name.toLowerCase().includes(search.toLowerCase()),
-      );
+      list = list.filter((c) => c.display_name.toLowerCase().includes(search.toLowerCase()));
     return list;
   }, [conversations, folder, search]);
 
@@ -137,7 +224,7 @@ export function ChatList() {
     return d.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
   }
 
-  function truncate(str: string, max = 34) {
+  function truncate(str: string, max = 40) {
     if (!str) return "";
     return str.length > max ? str.slice(0, max) + "…" : str;
   }
@@ -187,22 +274,26 @@ export function ChatList() {
             Нет чатов. Начните новый!
           </div>
         ) : (
-          filtered.map((c: unknown) => {
+          filtered.map((c) => {
             const active = params.conversationId === c.id;
-            const initials = (c.display_name as string)
+            const initials = c.display_name
               .split(" ")
-              .map((s: string) => s[0])
+              .map((s) => s[0] ?? "")
               .join("")
               .slice(0, 2)
               .toUpperCase();
             const isMine = c.last_message_sender === user?.id;
-            const hasUnread = !c.last_message_read && !isMine;
 
-            // For direct chats: "Фамилия Имя" format at top
             const displayTitle =
               c.type === "direct" && (c.display_last_name || c.display_first_name)
                 ? `${c.display_last_name} ${c.display_first_name}`.trim()
                 : c.display_name;
+
+            const preview = c.last_message
+              ? c.last_message.startsWith("sticker:")
+                ? "🎭 Стикер"
+                : truncate(c.last_message)
+              : null;
 
             return (
               <Link
@@ -213,7 +304,6 @@ export function ChatList() {
                   active ? "bg-white/8 border-[var(--neon-violet)]" : "border-transparent"
                 }`}
               >
-                {/* Avatar */}
                 <div className="relative shrink-0">
                   <Avatar className="h-12 w-12">
                     <AvatarImage src={c.display_avatar ?? undefined} />
@@ -223,13 +313,9 @@ export function ChatList() {
                   </Avatar>
                 </div>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
-                  {/* Row 1: name + time */}
                   <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`font-semibold truncate text-[13px] leading-tight ${hasUnread ? "text-foreground" : "text-foreground/90"}`}
-                    >
+                    <span className="font-semibold truncate text-[13px] leading-tight text-foreground">
                       {displayTitle}
                     </span>
                     <span className="text-[10px] text-muted-foreground shrink-0">
@@ -237,10 +323,8 @@ export function ChatList() {
                     </span>
                   </div>
 
-                  {/* Row 2: last message + read ticks + unread dot */}
                   <div className="flex items-center justify-between gap-1 mt-0.5">
                     <div className="flex items-center gap-1 min-w-0">
-                      {/* Double check for sent messages */}
                       {isMine && c.last_message && (
                         <span className="shrink-0">
                           {c.last_message_read ? (
@@ -251,22 +335,18 @@ export function ChatList() {
                         </span>
                       )}
                       <span
-                        className={`text-xs truncate ${hasUnread ? "text-foreground/75 font-medium" : "text-muted-foreground"}`}
+                        className={`text-xs truncate ${
+                          c.unread_count > 0
+                            ? "text-foreground/85 font-medium"
+                            : "text-muted-foreground"
+                        }`}
                       >
-                        {c.last_message ? (
-                          c.last_message.startsWith("sticker:") ? (
-                            "🎭 Стикер"
-                          ) : (
-                            truncate(c.last_message)
-                          )
-                        ) : (
-                          <em className="opacity-50 not-italic">Нет сообщений</em>
-                        )}
+                        {preview ?? <em className="opacity-50 not-italic">Нет сообщений</em>}
                       </span>
                     </div>
-                    {hasUnread && (
+                    {c.unread_count > 0 && (
                       <span className="shrink-0 h-5 min-w-[20px] px-1.5 rounded-full bg-gradient-to-r from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white text-[10px] font-bold flex items-center justify-center shadow-[var(--shadow-neon)]">
-                        N
+                        {c.unread_count > 99 ? "99+" : c.unread_count}
                       </span>
                     )}
                   </div>
