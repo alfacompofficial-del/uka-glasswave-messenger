@@ -18,7 +18,6 @@ import {
   UserX,
   Copy,
   Crown,
-  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { uploadChatAvatar } from "@/lib/chat-avatar";
