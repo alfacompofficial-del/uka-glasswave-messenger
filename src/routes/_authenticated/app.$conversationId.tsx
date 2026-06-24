@@ -10,6 +10,8 @@ import { Send, Phone, Video, Info, Languages as LangIcon, Smile, CheckCheck, Che
 import { convertScript } from "@/lib/translit";
 import { toast } from "sonner";
 import { StickerPicker } from "@/components/StickerPicker";
+import { ChatProfileDialog } from "@/components/ChatProfileDialog";
+import { UserProfileDialog } from "@/components/UserProfileDialog";
 
 export const Route = createFileRoute("/_authenticated/app/$conversationId")({
   component: ChatView,
@@ -37,6 +39,7 @@ function ChatView() {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [showStickers, setShowStickers] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickerBtnRef = useRef<HTMLDivElement>(null);
 
