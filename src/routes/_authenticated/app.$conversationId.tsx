@@ -55,6 +55,7 @@ function ChatView() {
       let firstName = "";
       let lastName = "";
       let avatar: string | null = null;
+      let otherUserId: string | null = null;
       let subtitle =
         data?.type === "direct" ? "Личный чат" : data?.type === "group" ? "Группа" : "Канал";
 
@@ -66,6 +67,7 @@ function ChatView() {
           .neq("user_id", user.id)
           .maybeSingle();
         if (other?.user_id) {
+          otherUserId = other.user_id;
           const { data: p } = await supabase
             .from("profiles")
             .select("first_name, last_name, avatar_url, username")
@@ -79,8 +81,10 @@ function ChatView() {
             subtitle = "Личный чат";
           }
         }
+      } else if (data?.type) {
+        avatar = data.avatar_url;
       }
-      return { ...data, title, firstName, lastName, avatar, subtitle };
+      return { ...data, title, firstName, lastName, avatar, subtitle, otherUserId };
     },
   });
 
