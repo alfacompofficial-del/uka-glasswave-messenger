@@ -5,8 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Plus, CheckCheck, Check } from "lucide-react";
-import { NewChatDialog } from "./NewChatDialog";
+import { Search, Plus, CheckCheck, Check, Users, Hash, Globe, Lock } from "lucide-react";
+import { NewChatWizard } from "./NewChatWizard";
 
 const FOLDERS = [
   { key: "all", label: "Все" },
@@ -365,7 +365,7 @@ export function ChatList() {
         )}
       </div>
 
-      <NewChatDialog open={newChatOpen} onOpenChange={setNewChatOpen} />
+      <NewChatWizard open={newChatOpen} onOpenChange={setNewChatOpen} />
     </>
   );
 }
