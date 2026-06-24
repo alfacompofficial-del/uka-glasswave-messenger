@@ -146,7 +146,7 @@ export function ChatProfileDialog({
 
   async function saveBasics() {
     if (!conv) return;
-    const { error } = await supabase.rpc("update_conversation", {
+    const { error } = await (supabase.rpc as any)("update_conversation", {
       _conv: conv.id,
       _name: name.trim() || conv.name,
       _avatar_url: null,
@@ -164,7 +164,7 @@ export function ChatProfileDialog({
 
   async function togglePublic() {
     if (!conv || !isOwner) return;
-    const { error } = await supabase.rpc("update_conversation", {
+    const { error } = await (supabase.rpc as any)("update_conversation", {
       _conv: conv.id,
       _name: null,
       _avatar_url: null,
@@ -182,7 +182,7 @@ export function ChatProfileDialog({
     setUploading(true);
     try {
       const url = await uploadChatAvatar(user.id, f);
-      const { error } = await supabase.rpc("update_conversation", {
+      const { error } = await (supabase.rpc as any)("update_conversation", {
         _conv: conv.id,
         _name: null,
         _avatar_url: url,
@@ -203,7 +203,7 @@ export function ChatProfileDialog({
 
   async function setRole(uid: string, role: "admin" | "member") {
     if (!conv) return;
-    const { error } = await supabase.rpc("set_member_role", {
+    const { error } = await (supabase.rpc as any)("set_member_role", {
       _conv: conv.id,
       _user: uid,
       _role: role,
@@ -215,7 +215,7 @@ export function ChatProfileDialog({
   async function kick(uid: string) {
     if (!conv) return;
     if (!confirm("Удалить участника?")) return;
-    const { error } = await supabase.rpc("remove_member", {
+    const { error } = await (supabase.rpc as any)("remove_member", {
       _conv: conv.id,
       _user: uid,
     });
@@ -488,7 +488,7 @@ function AddMembersDialog({
       return;
     }
     setSaving(true);
-    const { error } = await supabase.rpc("add_members", {
+    const { error } = await (supabase.rpc as any)("add_members", {
       _conv: conv.id,
       _user_ids: picked,
     });

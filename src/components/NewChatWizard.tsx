@@ -134,7 +134,7 @@ export function NewChatWizard({
   async function createConv() {
     if (!user) return;
     setCreating(true);
-    const { data, error } = await supabase.rpc("create_group_or_channel", {
+    const { data, error } = await (supabase.rpc as any)("create_group_or_channel", {
       _type: mode === "group" ? "group" : "channel",
       _name: name.trim(),
       _avatar_url: avatarUrl ?? "",
