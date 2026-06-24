@@ -137,7 +137,7 @@ export function NewChatWizard({
     const { data, error } = await supabase.rpc("create_group_or_channel", {
       _type: mode === "group" ? "group" : "channel",
       _name: name.trim(),
-      _avatar_url: avatarUrl,
+      _avatar_url: avatarUrl ?? "",
       _is_public: isPublic,
       _member_ids: members.map((m) => m.id),
     });
