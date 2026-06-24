@@ -5,8 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Plus, CheckCheck, Check } from "lucide-react";
-import { NewChatDialog } from "./NewChatDialog";
+import { Search, Plus, CheckCheck, Check, Users, Hash } from "lucide-react";
+import { NewChatWizard } from "./NewChatWizard";
 
 const FOLDERS = [
   { key: "all", label: "Все" },
@@ -316,9 +316,14 @@ export function ChatList() {
                   <Avatar className="h-12 w-12">
                     <AvatarImage src={c.display_avatar ?? undefined} />
                     <AvatarFallback className="bg-gradient-to-br from-[var(--neon-blue)] to-[var(--neon-cyan)] text-white font-semibold text-sm">
-                      {initials || "?"}
+                      {c.type === "group" ? <Users className="h-5 w-5" /> : c.type === "channel" ? <Hash className="h-5 w-5" /> : initials || "?"}
                     </AvatarFallback>
                   </Avatar>
+                  {c.type !== "direct" && (
+                    <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-background flex items-center justify-center border border-border/40">
+                      {c.type === "channel" ? <Hash className="h-2.5 w-2.5" /> : <Users className="h-2.5 w-2.5" />}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -365,7 +370,7 @@ export function ChatList() {
         )}
       </div>
 
-      <NewChatDialog open={newChatOpen} onOpenChange={setNewChatOpen} />
+      <NewChatWizard open={newChatOpen} onOpenChange={setNewChatOpen} />
     </>
   );
 }

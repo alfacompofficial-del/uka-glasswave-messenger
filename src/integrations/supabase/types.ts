@@ -77,6 +77,8 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          invite_slug: string | null
+          is_public: boolean
           name: string | null
           type: Database["public"]["Enums"]["conversation_type"]
           updated_at: string
@@ -87,6 +89,8 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          invite_slug?: string | null
+          is_public?: boolean
           name?: string | null
           type: Database["public"]["Enums"]["conversation_type"]
           updated_at?: string
@@ -97,6 +101,8 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          invite_slug?: string | null
+          is_public?: boolean
           name?: string | null
           type?: Database["public"]["Enums"]["conversation_type"]
           updated_at?: string
@@ -218,13 +224,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_members: {
+        Args: { _conv: string; _user_ids: string[] }
+        Returns: undefined
+      }
       assign_admin_if_eligible: {
         Args: { _email: string; _phone: string; _user_id: string }
         Returns: undefined
       }
+      can_view_members: {
+        Args: { _conv: string; _user: string }
+        Returns: boolean
+      }
       conversation_type_of: {
         Args: { _conv: string }
         Returns: Database["public"]["Enums"]["conversation_type"]
+      }
+      create_group_or_channel: {
+        Args: {
+          _avatar_url: string
+          _is_public: boolean
+          _member_ids: string[]
+          _name: string
+          _type: Database["public"]["Enums"]["conversation_type"]
+        }
+        Returns: string
       }
       get_or_create_direct: { Args: { _other: string }; Returns: string }
       has_role: {
@@ -237,6 +261,27 @@ export type Database = {
       is_conversation_member: {
         Args: { _conv: string; _user: string }
         Returns: boolean
+      }
+      join_by_slug: { Args: { _slug: string }; Returns: string }
+      member_role: { Args: { _conv: string; _user: string }; Returns: string }
+      remove_member: {
+        Args: { _conv: string; _user: string }
+        Returns: undefined
+      }
+      set_member_role: {
+        Args: { _conv: string; _role: string; _user: string }
+        Returns: undefined
+      }
+      update_conversation: {
+        Args: {
+          _avatar_url: string
+          _conv: string
+          _description: string
+          _invite_slug: string
+          _is_public: boolean
+          _name: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

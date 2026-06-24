@@ -10,6 +10,8 @@ import { Send, Phone, Video, Info, Languages as LangIcon, Smile, CheckCheck, Che
 import { convertScript } from "@/lib/translit";
 import { toast } from "sonner";
 import { StickerPicker } from "@/components/StickerPicker";
+import { ChatProfileDialog } from "@/components/ChatProfileDialog";
+import { UserProfileDialog } from "@/components/UserProfileDialog";
 
 export const Route = createFileRoute("/_authenticated/app/$conversationId")({
   component: ChatView,
@@ -37,6 +39,7 @@ function ChatView() {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [showStickers, setShowStickers] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickerBtnRef = useRef<HTMLDivElement>(null);
 
@@ -52,6 +55,7 @@ function ChatView() {
       let firstName = "";
       let lastName = "";
       let avatar: string | null = null;
+      let otherUserId: string | null = null;
       let subtitle =
         data?.type === "direct" ? "Личный чат" : data?.type === "group" ? "Группа" : "Канал";
 
@@ -63,6 +67,7 @@ function ChatView() {
           .neq("user_id", user.id)
           .maybeSingle();
         if (other?.user_id) {
+          otherUserId = other.user_id;
           const { data: p } = await supabase
             .from("profiles")
             .select("first_name, last_name, avatar_url, username")
@@ -76,8 +81,10 @@ function ChatView() {
             subtitle = "Личный чат";
           }
         }
+      } else if (data?.type) {
+        avatar = data.avatar_url;
       }
-      return { ...data, title, firstName, lastName, avatar, subtitle };
+      return { ...data, title, firstName, lastName, avatar, subtitle, otherUserId };
     },
   });
 
@@ -220,16 +227,21 @@ function ChatView() {
   return (
     <>
       <header className="h-16 px-5 glass-strong border-b border-border/40 flex items-center gap-3">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={conv?.avatar ?? undefined} />
-          <AvatarFallback className="bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold truncate leading-tight">{headerTitle}</div>
-          <div className="text-xs text-muted-foreground">{conv?.subtitle}</div>
-        </div>
+        <button
+          onClick={() => setProfileOpen(true)}
+          className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-90 transition"
+        >
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={conv?.avatar ?? undefined} />
+            <AvatarFallback className="bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold truncate leading-tight">{headerTitle}</div>
+            <div className="text-xs text-muted-foreground">{conv?.subtitle}</div>
+          </div>
+        </button>
         <button
           className="h-10 w-10 rounded-lg glass hover:neon-ring flex items-center justify-center"
           title="Звонок (скоро)"
@@ -245,12 +257,28 @@ function ChatView() {
           <Video className="h-4 w-4" />
         </button>
         <button
+          onClick={() => setProfileOpen(true)}
           className="h-10 w-10 rounded-lg glass hover:neon-ring flex items-center justify-center"
-          title="Инфо"
+          title="Профиль чата"
         >
           <Info className="h-4 w-4" />
         </button>
       </header>
+
+      {conv?.type === "direct" ? (
+        <UserProfileDialog
+          userId={conv.otherUserId ?? null}
+          open={profileOpen}
+          onOpenChange={setProfileOpen}
+          showMessageButton={false}
+        />
+      ) : (
+        <ChatProfileDialog
+          conversationId={conversationId}
+          open={profileOpen}
+          onOpenChange={setProfileOpen}
+        />
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6 space-y-3">
         {messages.map((m) => {
