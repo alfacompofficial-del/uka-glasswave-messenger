@@ -227,16 +227,21 @@ function ChatView() {
   return (
     <>
       <header className="h-16 px-5 glass-strong border-b border-border/40 flex items-center gap-3">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={conv?.avatar ?? undefined} />
-          <AvatarFallback className="bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold truncate leading-tight">{headerTitle}</div>
-          <div className="text-xs text-muted-foreground">{conv?.subtitle}</div>
-        </div>
+        <button
+          onClick={() => setProfileOpen(true)}
+          className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-90 transition"
+        >
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={conv?.avatar ?? undefined} />
+            <AvatarFallback className="bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold truncate leading-tight">{headerTitle}</div>
+            <div className="text-xs text-muted-foreground">{conv?.subtitle}</div>
+          </div>
+        </button>
         <button
           className="h-10 w-10 rounded-lg glass hover:neon-ring flex items-center justify-center"
           title="Звонок (скоро)"
@@ -252,12 +257,28 @@ function ChatView() {
           <Video className="h-4 w-4" />
         </button>
         <button
+          onClick={() => setProfileOpen(true)}
           className="h-10 w-10 rounded-lg glass hover:neon-ring flex items-center justify-center"
-          title="Инфо"
+          title="Профиль чата"
         >
           <Info className="h-4 w-4" />
         </button>
       </header>
+
+      {conv?.type === "direct" ? (
+        <UserProfileDialog
+          userId={conv.otherUserId ?? null}
+          open={profileOpen}
+          onOpenChange={setProfileOpen}
+          showMessageButton={false}
+        />
+      ) : (
+        <ChatProfileDialog
+          conversationId={conversationId}
+          open={profileOpen}
+          onOpenChange={setProfileOpen}
+        />
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6 space-y-3">
         {messages.map((m) => {
