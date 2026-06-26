@@ -300,8 +300,13 @@ export function ChatList() {
             const preview = c.last_message
               ? c.last_message.startsWith("sticker:")
                 ? "🎭 Стикер"
-                : truncate(c.last_message)
+                : c.last_message.startsWith("voice:")
+                  ? "🎤 Голосовое сообщение"
+                  : truncate(c.last_message)
               : null;
+
+            // While the chat is open we already mark messages as read; show 0 immediately
+            const unread = active ? 0 : c.unread_count;
 
             return (
               <Link
