@@ -42,9 +42,11 @@ function ChatView() {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [showStickers, setShowStickers] = useState(false);
+  const [showAI, setShowAI] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickerBtnRef = useRef<HTMLDivElement>(null);
+  const aiBtnRef = useRef<HTMLDivElement>(null);
 
   const { data: conv } = useQuery({
     queryKey: ["conversation", conversationId],
