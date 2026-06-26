@@ -303,7 +303,16 @@ function ChatView() {
             `${m.profile?.first_name?.[0] ?? ""}${m.profile?.last_name?.[0] ?? ""}`.toUpperCase() ||
             "?";
           const isSticker = m.content?.startsWith("sticker:");
+          const isVoice = m.content?.startsWith("voice:");
           const stickerEmoji = isSticker ? m.content.replace("sticker:", "") : null;
+          let voiceData: { path: string; duration: number } | null = null;
+          if (isVoice) {
+            const rest = m.content.slice("voice:".length);
+            const lastColon = rest.lastIndexOf(":");
+            const path = lastColon > 0 ? rest.slice(0, lastColon) : rest;
+            const duration = lastColon > 0 ? parseInt(rest.slice(lastColon + 1), 10) || 0 : 0;
+            voiceData = { path, duration };
+          }
           const read = mine && !!otherLastRead && otherLastRead >= m.created_at;
 
           return (
@@ -320,6 +329,22 @@ function ChatView() {
                     {stickerEmoji}
                   </div>
                   <div className="mt-0.5 text-[10px] text-muted-foreground flex items-center gap-1">
+                    {new Date(m.created_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    {mine &&
+                      (read ? (
+                        <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
+                      ) : (
+                        <Check className="h-3 w-3 opacity-70" />
+                      ))}
+                  </div>
+                </div>
+              ) : isVoice && voiceData ? (
+                <div className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
+                  <VoiceMessage path={voiceData.path} duration={voiceData.duration} mine={mine} />
+                  <div className={`mt-0.5 text-[10px] flex items-center gap-1 ${mine ? "text-muted-foreground" : "text-muted-foreground"}`}>
                     {new Date(m.created_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
