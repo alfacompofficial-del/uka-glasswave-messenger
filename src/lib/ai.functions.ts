@@ -32,7 +32,9 @@ export const improveText = createServerFn({ method: "POST" })
 
     try {
       const { text } = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
+        // Provider/SDK type-version mismatch between @ai-sdk/openai-compatible
+        // and ai@6 — runtime contract is identical.
+        model: gateway("google/gemini-3-flash-preview") as never,
         system: PROMPTS[data.mode],
         prompt: data.text,
       });
