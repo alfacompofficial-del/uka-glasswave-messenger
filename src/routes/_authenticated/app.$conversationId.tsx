@@ -419,19 +419,48 @@ function ChatView() {
           )}
         </div>
 
+        <div className="relative" ref={aiBtnRef}>
+          <button
+            type="button"
+            onClick={() => setShowAI((v) => !v)}
+            title="AI-помощник"
+            className={`h-11 w-11 shrink-0 rounded-xl glass hover:neon-ring flex items-center justify-center transition ${showAI ? "neon-ring" : ""}`}
+          >
+            <Sparkles className="h-4 w-4 text-[var(--neon-violet)]" />
+          </button>
+          {showAI && (
+            <AIWriteHelper
+              text={text}
+              onApply={(t) => setText(t)}
+              onClose={() => setShowAI(false)}
+            />
+          )}
+        </div>
+
         <Input
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Напишите сообщение…"
           className="h-11 flex-1"
         />
-        <Button
-          type="submit"
-          disabled={!text.trim()}
-          className="h-11 w-11 p-0 shrink-0 bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
+
+        {user &&
+          (text.trim() ? (
+            <Button
+              type="submit"
+              className="h-11 w-11 p-0 shrink-0 bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          ) : (
+            <VoiceRecorder
+              conversationId={conversationId}
+              userId={user.id}
+              onSent={() =>
+                queryClient.invalidateQueries({ queryKey: ["messages", conversationId] })
+              }
+            />
+          ))}
       </form>
     </>
   );
