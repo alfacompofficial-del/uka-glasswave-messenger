@@ -6,12 +6,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Phone, Video, Info, Languages as LangIcon, Smile, CheckCheck, Check } from "lucide-react";
+import { Send, Phone, Video, Info, Languages as LangIcon, Smile, CheckCheck, Check, Sparkles } from "lucide-react";
 import { convertScript } from "@/lib/translit";
 import { toast } from "sonner";
 import { StickerPicker } from "@/components/StickerPicker";
 import { ChatProfileDialog } from "@/components/ChatProfileDialog";
 import { UserProfileDialog } from "@/components/UserProfileDialog";
+import { VoiceRecorder } from "@/components/VoiceRecorder";
+import { VoiceMessage } from "@/components/VoiceMessage";
+import { AIWriteHelper } from "@/components/AIWriteHelper";
 
 export const Route = createFileRoute("/_authenticated/app/$conversationId")({
   component: ChatView,
