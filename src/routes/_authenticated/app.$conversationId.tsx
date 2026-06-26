@@ -193,6 +193,17 @@ function ChatView() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showStickers]);
 
+  useEffect(() => {
+    if (!showAI) return;
+    function handleClick(e: MouseEvent) {
+      if (aiBtnRef.current && !aiBtnRef.current.contains(e.target as Node)) {
+        setShowAI(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showAI]);
+
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim() || !user) return;
