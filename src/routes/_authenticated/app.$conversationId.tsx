@@ -6,12 +6,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Phone, Video, Info, Languages as LangIcon, Smile, CheckCheck, Check } from "lucide-react";
+import { Send, Phone, Video, Info, Languages as LangIcon, Smile, CheckCheck, Check, Sparkles } from "lucide-react";
 import { convertScript } from "@/lib/translit";
 import { toast } from "sonner";
 import { StickerPicker } from "@/components/StickerPicker";
 import { ChatProfileDialog } from "@/components/ChatProfileDialog";
 import { UserProfileDialog } from "@/components/UserProfileDialog";
+import { VoiceRecorder } from "@/components/VoiceRecorder";
+import { VoiceMessage } from "@/components/VoiceMessage";
+import { AIWriteHelper } from "@/components/AIWriteHelper";
 
 export const Route = createFileRoute("/_authenticated/app/$conversationId")({
   component: ChatView,
@@ -39,9 +42,11 @@ function ChatView() {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [showStickers, setShowStickers] = useState(false);
+  const [showAI, setShowAI] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickerBtnRef = useRef<HTMLDivElement>(null);
+  const aiBtnRef = useRef<HTMLDivElement>(null);
 
   const { data: conv } = useQuery({
     queryKey: ["conversation", conversationId],
@@ -188,6 +193,17 @@ function ChatView() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showStickers]);
 
+  useEffect(() => {
+    if (!showAI) return;
+    function handleClick(e: MouseEvent) {
+      if (aiBtnRef.current && !aiBtnRef.current.contains(e.target as Node)) {
+        setShowAI(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showAI]);
+
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim() || !user) return;
@@ -287,7 +303,16 @@ function ChatView() {
             `${m.profile?.first_name?.[0] ?? ""}${m.profile?.last_name?.[0] ?? ""}`.toUpperCase() ||
             "?";
           const isSticker = m.content?.startsWith("sticker:");
+          const isVoice = m.content?.startsWith("voice:");
           const stickerEmoji = isSticker ? m.content.replace("sticker:", "") : null;
+          let voiceData: { path: string; duration: number } | null = null;
+          if (isVoice) {
+            const rest = m.content.slice("voice:".length);
+            const lastColon = rest.lastIndexOf(":");
+            const path = lastColon > 0 ? rest.slice(0, lastColon) : rest;
+            const duration = lastColon > 0 ? parseInt(rest.slice(lastColon + 1), 10) || 0 : 0;
+            voiceData = { path, duration };
+          }
           const read = mine && !!otherLastRead && otherLastRead >= m.created_at;
 
           return (
@@ -304,6 +329,22 @@ function ChatView() {
                     {stickerEmoji}
                   </div>
                   <div className="mt-0.5 text-[10px] text-muted-foreground flex items-center gap-1">
+                    {new Date(m.created_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    {mine &&
+                      (read ? (
+                        <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
+                      ) : (
+                        <Check className="h-3 w-3 opacity-70" />
+                      ))}
+                  </div>
+                </div>
+              ) : isVoice && voiceData ? (
+                <div className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
+                  <VoiceMessage path={voiceData.path} duration={voiceData.duration} mine={mine} />
+                  <div className={`mt-0.5 text-[10px] flex items-center gap-1 ${mine ? "text-muted-foreground" : "text-muted-foreground"}`}>
                     {new Date(m.created_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -378,19 +419,48 @@ function ChatView() {
           )}
         </div>
 
+        <div className="relative" ref={aiBtnRef}>
+          <button
+            type="button"
+            onClick={() => setShowAI((v) => !v)}
+            title="AI-помощник"
+            className={`h-11 w-11 shrink-0 rounded-xl glass hover:neon-ring flex items-center justify-center transition ${showAI ? "neon-ring" : ""}`}
+          >
+            <Sparkles className="h-4 w-4 text-[var(--neon-violet)]" />
+          </button>
+          {showAI && (
+            <AIWriteHelper
+              text={text}
+              onApply={(t) => setText(t)}
+              onClose={() => setShowAI(false)}
+            />
+          )}
+        </div>
+
         <Input
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Напишите сообщение…"
           className="h-11 flex-1"
         />
-        <Button
-          type="submit"
-          disabled={!text.trim()}
-          className="h-11 w-11 p-0 shrink-0 bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
+
+        {user &&
+          (text.trim() ? (
+            <Button
+              type="submit"
+              className="h-11 w-11 p-0 shrink-0 bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          ) : (
+            <VoiceRecorder
+              conversationId={conversationId}
+              userId={user.id}
+              onSent={() =>
+                queryClient.invalidateQueries({ queryKey: ["messages", conversationId] })
+              }
+            />
+          ))}
       </form>
     </>
   );
