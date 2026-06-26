@@ -7,11 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
  * OAuth/OTP redirect URL. Avoids a "gray screen" right after sign-in where
  * `getUser()` is called before `detectSessionInUrl` has stored the token.
  */
-async function waitForSession(timeoutMs = 2500) {
+async function waitForSession(timeoutMs = 2500): Promise<Session | null> {
   const { data } = await supabase.auth.getSession();
   if (data.session) return data.session;
 
-  return new Promise<typeof data.session>((resolve) => {
+  return new Promise<Session | null>((resolve) => {
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       if (session) {
         sub.subscription.unsubscribe();
