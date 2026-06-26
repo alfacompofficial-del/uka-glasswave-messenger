@@ -354,7 +354,7 @@ export function ChatList() {
                       )}
                       <span
                         className={`text-xs truncate ${
-                          c.unread_count > 0
+                          unread > 0
                             ? "text-foreground/85 font-medium"
                             : "text-muted-foreground"
                         }`}
@@ -362,9 +362,9 @@ export function ChatList() {
                         {preview ?? <em className="opacity-50 not-italic">Нет сообщений</em>}
                       </span>
                     </div>
-                    {c.unread_count > 0 && (
+                    {unread > 0 && (
                       <span className="shrink-0 h-5 min-w-[20px] px-1.5 rounded-full bg-gradient-to-r from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white text-[10px] font-bold flex items-center justify-center shadow-[var(--shadow-neon)]">
-                        {c.unread_count > 99 ? "99+" : c.unread_count}
+                        {unread > 99 ? "99+" : unread}
                       </span>
                     )}
                   </div>
