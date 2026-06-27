@@ -13,6 +13,7 @@ import { useProfile, useIsAdmin } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQueryClient } from "@tanstack/react-query";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function AppShell({
   children,
@@ -26,6 +27,7 @@ export function AppShell({
   const { data: isAdmin } = useIsAdmin();
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isMobile = useIsMobile();
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -49,6 +51,56 @@ export function AppShell({
       ? [{ to: "/admin", icon: Shield, label: "Админ", active: pathname.startsWith("/admin") }]
       : []),
   ];
+
+  // On mobile: show chat list when at /app exactly, show main when in a conversation/settings/admin
+  const isAppRoot = pathname === "/app" || pathname === "/app/";
+  const showLeftPanelMobile = isMobile && leftPanel && isAppRoot;
+  const showMainMobile = isMobile && (!leftPanel || !isAppRoot);
+
+  if (isMobile) {
+    return (
+      <div className="min-h-[100dvh] flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col">
+          {showLeftPanelMobile && (
+            <aside className="flex-1 min-h-0 flex flex-col">{leftPanel}</aside>
+          )}
+          {showMainMobile && <main className="flex-1 min-h-0 flex flex-col">{children}</main>}
+          {!showLeftPanelMobile && !showMainMobile && (
+            <main className="flex-1 min-h-0 flex flex-col">{children}</main>
+          )}
+        </div>
+        {/* Bottom tab bar */}
+        <nav className="shrink-0 glass-strong border-t border-border/40 grid grid-cols-4 gap-1 px-2 pt-1 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+          {navItems.map((it) => (
+            <Link
+              key={it.to}
+              to={it.to}
+              className={`flex flex-col items-center justify-center py-1.5 rounded-lg gap-0.5 ${
+                it.active
+                  ? "text-[var(--neon-cyan)]"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <it.icon className="h-5 w-5" />
+              <span className="text-[10px] leading-tight">{it.label}</span>
+            </Link>
+          ))}
+          <Link
+            to="/settings"
+            className="flex flex-col items-center justify-center py-1.5 rounded-lg gap-0.5 text-muted-foreground"
+          >
+            <Avatar className="h-5 w-5">
+              <AvatarImage src={profile?.avatar_url ?? undefined} />
+              <AvatarFallback className="bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-cyan)] text-white text-[9px] font-bold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-[10px] leading-tight">Профиль</span>
+          </Link>
+        </nav>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
