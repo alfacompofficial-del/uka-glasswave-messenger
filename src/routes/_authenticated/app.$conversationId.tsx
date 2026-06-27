@@ -518,6 +518,13 @@ function ChatView() {
             />
           ))}
       </form>
+
+      <ForwardDialog
+        open={forwardContent !== null}
+        onOpenChange={(v) => !v && setForwardContent(null)}
+        content={forwardContent ?? ""}
+        excludeConversationId={conversationId}
+      />
     </>
   );
 }
