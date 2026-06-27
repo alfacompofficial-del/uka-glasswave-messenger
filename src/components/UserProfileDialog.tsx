@@ -36,18 +36,33 @@ export function UserProfileDialog({
 
   useEffect(() => {
     if (!open || !userId) return;
+    let cancelled = false;
     setLoading(true);
-    supabase
-      .from("profiles")
-      .select(
-        "id, first_name, last_name, username, avatar_url, status_text, status_emoji, country, phone",
-      )
-      .eq("id", userId)
-      .maybeSingle()
-      .then(({ data }) => {
-        setProfile(data as Profile | null);
-        setLoading(false);
-      });
+    setProfile(null);
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select(
+            "id, first_name, last_name, username, avatar_url, status_text, status_emoji, country, phone",
+          )
+          .eq("id", userId)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error) {
+          console.error("[UserProfileDialog] load error", error);
+          toast.error(error.message);
+        }
+        setProfile((data as Profile | null) ?? null);
+      } catch (e) {
+        if (!cancelled) console.error("[UserProfileDialog] exception", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [userId, open]);
 
   async function startDirect() {
