@@ -86,9 +86,13 @@ export function UserProfileDialog({
         <DialogHeader>
           <DialogTitle>Профиль</DialogTitle>
         </DialogHeader>
-        {loading || !profile ? (
+        {loading ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        ) : !profile ? (
+          <div className="text-center py-8 text-sm text-muted-foreground">
+            Профиль недоступен или скрыт настройками приватности.
           </div>
         ) : (
           <div className="space-y-4">
