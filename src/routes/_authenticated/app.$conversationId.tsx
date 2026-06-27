@@ -350,73 +350,95 @@ function ChatView() {
           const read = mine && !!otherLastRead && otherLastRead >= m.created_at;
 
           return (
-            <div key={m.id} className={`flex gap-2 ${mine ? "justify-end" : ""}`}>
-              {!mine && (
-                <Avatar className="h-8 w-8 mt-auto shrink-0">
-                  <AvatarImage src={m.profile?.avatar_url ?? undefined} />
-                  <AvatarFallback className="text-xs">{senderInit}</AvatarFallback>
-                </Avatar>
-              )}
-              {isSticker ? (
-                <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[120px]`}>
-                  <div className="text-5xl leading-none select-none cursor-default hover:scale-110 transition-transform" title="Стикер">
-                    {stickerEmoji}
-                  </div>
-                  <div className="mt-0.5 text-[10px] text-muted-foreground flex items-center gap-1">
-                    {new Date(m.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {mine &&
-                      (read ? (
-                        <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
-                      ) : (
-                        <Check className="h-3 w-3 opacity-70" />
-                      ))}
-                  </div>
+            <ContextMenu key={m.id}>
+              <ContextMenuTrigger asChild>
+                <div className={`flex gap-2 ${mine ? "justify-end" : ""}`}>
+                  {!mine && (
+                    <Avatar className="h-8 w-8 mt-auto shrink-0">
+                      <AvatarImage src={m.profile?.avatar_url ?? undefined} />
+                      <AvatarFallback className="text-xs">{senderInit}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  {isSticker ? (
+                    <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[120px]`}>
+                      <div className="text-5xl leading-none select-none cursor-default hover:scale-110 transition-transform" title="Стикер">
+                        {stickerEmoji}
+                      </div>
+                      <div className="mt-0.5 text-[10px] text-muted-foreground flex items-center gap-1">
+                        {new Date(m.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {mine &&
+                          (read ? (
+                            <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
+                          ) : (
+                            <Check className="h-3 w-3 opacity-70" />
+                          ))}
+                      </div>
+                    </div>
+                  ) : isVoice && voiceData ? (
+                    <div className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
+                      <VoiceMessage path={voiceData.path} duration={voiceData.duration} mine={mine} />
+                      <div className={`mt-0.5 text-[10px] flex items-center gap-1 ${mine ? "text-muted-foreground" : "text-muted-foreground"}`}>
+                        {new Date(m.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {mine &&
+                          (read ? (
+                            <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
+                          ) : (
+                            <Check className="h-3 w-3 opacity-70" />
+                          ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`max-w-[68%] rounded-2xl px-4 py-2.5 ${
+                        mine
+                          ? "bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-blue)] text-white rounded-br-sm shadow-[var(--shadow-neon)]"
+                          : "glass rounded-bl-sm"
+                      }`}
+                    >
+                      <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
+                      <div
+                        className={`mt-1 text-[10px] flex items-center gap-1 justify-end ${mine ? "text-white/80" : "text-muted-foreground"}`}
+                      >
+                        {new Date(m.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {mine &&
+                          (read ? (
+                            <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
+                          ) : (
+                            <Check className="h-3 w-3 opacity-80" />
+                          ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : isVoice && voiceData ? (
-                <div className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
-                  <VoiceMessage path={voiceData.path} duration={voiceData.duration} mine={mine} />
-                  <div className={`mt-0.5 text-[10px] flex items-center gap-1 ${mine ? "text-muted-foreground" : "text-muted-foreground"}`}>
-                    {new Date(m.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {mine &&
-                      (read ? (
-                        <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
-                      ) : (
-                        <Check className="h-3 w-3 opacity-70" />
-                      ))}
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className={`max-w-[68%] rounded-2xl px-4 py-2.5 ${
-                    mine
-                      ? "bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-blue)] text-white rounded-br-sm shadow-[var(--shadow-neon)]"
-                      : "glass rounded-bl-sm"
-                  }`}
-                >
-                  <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
-                  <div
-                    className={`mt-1 text-[10px] flex items-center gap-1 justify-end ${mine ? "text-white/80" : "text-muted-foreground"}`}
+              </ContextMenuTrigger>
+              <ContextMenuContent className="glass-strong">
+                <ContextMenuItem onClick={() => setForwardContent(m.content)}>
+                  <ForwardIcon className="h-4 w-4 mr-2" /> Переслать
+                </ContextMenuItem>
+                {!isSticker && !isVoice && (
+                  <ContextMenuItem onClick={() => copyText(m.content)}>
+                    <Copy className="h-4 w-4 mr-2" /> Копировать
+                  </ContextMenuItem>
+                )}
+                {mine && (
+                  <ContextMenuItem
+                    onClick={() => deleteMessage(m.id)}
+                    className="text-red-400 focus:text-red-400"
                   >
-                    {new Date(m.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {mine &&
-                      (read ? (
-                        <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
-                      ) : (
-                        <Check className="h-3 w-3 opacity-80" />
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
+                    <Trash2 className="h-4 w-4 mr-2" /> Удалить
+                  </ContextMenuItem>
+                )}
+              </ContextMenuContent>
+            </ContextMenu>
           );
         })}
         {messages.length === 0 && (
