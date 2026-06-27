@@ -53,6 +53,7 @@ function ChatView() {
   const [showStickers, setShowStickers] = useState(false);
   const [showAI, setShowAI] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [forwardContent, setForwardContent] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickerBtnRef = useRef<HTMLDivElement>(null);
   const aiBtnRef = useRef<HTMLDivElement>(null);
