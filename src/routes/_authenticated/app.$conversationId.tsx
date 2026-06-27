@@ -243,7 +243,14 @@ function ChatView() {
 
   return (
     <>
-      <header className="h-16 px-5 glass-strong border-b border-border/40 flex items-center gap-3">
+      <header className="h-16 px-3 sm:px-5 glass-strong border-b border-border/40 flex items-center gap-2 sm:gap-3">
+        <Link
+          to="/app"
+          className="md:hidden h-10 w-10 rounded-lg glass hover:neon-ring flex items-center justify-center shrink-0"
+          aria-label="Назад"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
         <button
           onClick={() => setProfileOpen(true)}
           className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-90 transition"
