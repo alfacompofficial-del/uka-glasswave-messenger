@@ -16,6 +16,14 @@ import { UserProfileDialog } from "@/components/UserProfileDialog";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { VoiceMessage } from "@/components/VoiceMessage";
 import { AIWriteHelper } from "@/components/AIWriteHelper";
+import { ForwardDialog } from "@/components/ForwardDialog";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Trash2, Forward as ForwardIcon, Copy } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/$conversationId")({
   component: ChatView,
