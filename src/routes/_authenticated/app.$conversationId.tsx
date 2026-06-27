@@ -237,6 +237,23 @@ function ChatView() {
     if (error) toast.error(error.message);
   }
 
+  async function deleteMessage(id: string) {
+    const { error } = await supabase.from("messages").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+  }
+
+  async function copyText(t: string) {
+    try {
+      await navigator.clipboard.writeText(t);
+      toast.success("Скопировано");
+    } catch {
+      toast.error("Не удалось скопировать");
+    }
+  }
+
+
+
   const initials =
     conv?.title
       ?.split(" ")
