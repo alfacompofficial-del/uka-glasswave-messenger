@@ -16,6 +16,14 @@ import { UserProfileDialog } from "@/components/UserProfileDialog";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { VoiceMessage } from "@/components/VoiceMessage";
 import { AIWriteHelper } from "@/components/AIWriteHelper";
+import { ForwardDialog } from "@/components/ForwardDialog";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Trash2, Forward as ForwardIcon, Copy } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/$conversationId")({
   component: ChatView,
@@ -45,6 +53,7 @@ function ChatView() {
   const [showStickers, setShowStickers] = useState(false);
   const [showAI, setShowAI] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [forwardContent, setForwardContent] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickerBtnRef = useRef<HTMLDivElement>(null);
   const aiBtnRef = useRef<HTMLDivElement>(null);
@@ -228,6 +237,23 @@ function ChatView() {
     if (error) toast.error(error.message);
   }
 
+  async function deleteMessage(id: string) {
+    const { error } = await supabase.from("messages").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+  }
+
+  async function copyText(t: string) {
+    try {
+      await navigator.clipboard.writeText(t);
+      toast.success("Скопировано");
+    } catch {
+      toast.error("Не удалось скопировать");
+    }
+  }
+
+
+
   const initials =
     conv?.title
       ?.split(" ")
@@ -324,73 +350,95 @@ function ChatView() {
           const read = mine && !!otherLastRead && otherLastRead >= m.created_at;
 
           return (
-            <div key={m.id} className={`flex gap-2 ${mine ? "justify-end" : ""}`}>
-              {!mine && (
-                <Avatar className="h-8 w-8 mt-auto shrink-0">
-                  <AvatarImage src={m.profile?.avatar_url ?? undefined} />
-                  <AvatarFallback className="text-xs">{senderInit}</AvatarFallback>
-                </Avatar>
-              )}
-              {isSticker ? (
-                <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[120px]`}>
-                  <div className="text-5xl leading-none select-none cursor-default hover:scale-110 transition-transform" title="Стикер">
-                    {stickerEmoji}
-                  </div>
-                  <div className="mt-0.5 text-[10px] text-muted-foreground flex items-center gap-1">
-                    {new Date(m.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {mine &&
-                      (read ? (
-                        <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
-                      ) : (
-                        <Check className="h-3 w-3 opacity-70" />
-                      ))}
-                  </div>
+            <ContextMenu key={m.id}>
+              <ContextMenuTrigger asChild>
+                <div className={`flex gap-2 ${mine ? "justify-end" : ""}`}>
+                  {!mine && (
+                    <Avatar className="h-8 w-8 mt-auto shrink-0">
+                      <AvatarImage src={m.profile?.avatar_url ?? undefined} />
+                      <AvatarFallback className="text-xs">{senderInit}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  {isSticker ? (
+                    <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[120px]`}>
+                      <div className="text-5xl leading-none select-none cursor-default hover:scale-110 transition-transform" title="Стикер">
+                        {stickerEmoji}
+                      </div>
+                      <div className="mt-0.5 text-[10px] text-muted-foreground flex items-center gap-1">
+                        {new Date(m.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {mine &&
+                          (read ? (
+                            <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
+                          ) : (
+                            <Check className="h-3 w-3 opacity-70" />
+                          ))}
+                      </div>
+                    </div>
+                  ) : isVoice && voiceData ? (
+                    <div className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
+                      <VoiceMessage path={voiceData.path} duration={voiceData.duration} mine={mine} />
+                      <div className={`mt-0.5 text-[10px] flex items-center gap-1 ${mine ? "text-muted-foreground" : "text-muted-foreground"}`}>
+                        {new Date(m.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {mine &&
+                          (read ? (
+                            <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
+                          ) : (
+                            <Check className="h-3 w-3 opacity-70" />
+                          ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`max-w-[68%] rounded-2xl px-4 py-2.5 ${
+                        mine
+                          ? "bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-blue)] text-white rounded-br-sm shadow-[var(--shadow-neon)]"
+                          : "glass rounded-bl-sm"
+                      }`}
+                    >
+                      <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
+                      <div
+                        className={`mt-1 text-[10px] flex items-center gap-1 justify-end ${mine ? "text-white/80" : "text-muted-foreground"}`}
+                      >
+                        {new Date(m.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {mine &&
+                          (read ? (
+                            <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
+                          ) : (
+                            <Check className="h-3 w-3 opacity-80" />
+                          ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : isVoice && voiceData ? (
-                <div className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
-                  <VoiceMessage path={voiceData.path} duration={voiceData.duration} mine={mine} />
-                  <div className={`mt-0.5 text-[10px] flex items-center gap-1 ${mine ? "text-muted-foreground" : "text-muted-foreground"}`}>
-                    {new Date(m.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {mine &&
-                      (read ? (
-                        <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
-                      ) : (
-                        <Check className="h-3 w-3 opacity-70" />
-                      ))}
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className={`max-w-[68%] rounded-2xl px-4 py-2.5 ${
-                    mine
-                      ? "bg-gradient-to-br from-[var(--neon-violet)] to-[var(--neon-blue)] text-white rounded-br-sm shadow-[var(--shadow-neon)]"
-                      : "glass rounded-bl-sm"
-                  }`}
-                >
-                  <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
-                  <div
-                    className={`mt-1 text-[10px] flex items-center gap-1 justify-end ${mine ? "text-white/80" : "text-muted-foreground"}`}
+              </ContextMenuTrigger>
+              <ContextMenuContent className="glass-strong">
+                <ContextMenuItem onClick={() => setForwardContent(m.content)}>
+                  <ForwardIcon className="h-4 w-4 mr-2" /> Переслать
+                </ContextMenuItem>
+                {!isSticker && !isVoice && (
+                  <ContextMenuItem onClick={() => copyText(m.content)}>
+                    <Copy className="h-4 w-4 mr-2" /> Копировать
+                  </ContextMenuItem>
+                )}
+                {mine && (
+                  <ContextMenuItem
+                    onClick={() => deleteMessage(m.id)}
+                    className="text-red-400 focus:text-red-400"
                   >
-                    {new Date(m.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {mine &&
-                      (read ? (
-                        <CheckCheck className="h-3 w-3 text-[var(--neon-cyan)]" />
-                      ) : (
-                        <Check className="h-3 w-3 opacity-80" />
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
+                    <Trash2 className="h-4 w-4 mr-2" /> Удалить
+                  </ContextMenuItem>
+                )}
+              </ContextMenuContent>
+            </ContextMenu>
           );
         })}
         {messages.length === 0 && (
@@ -470,6 +518,13 @@ function ChatView() {
             />
           ))}
       </form>
+
+      <ForwardDialog
+        open={forwardContent !== null}
+        onOpenChange={(v) => !v && setForwardContent(null)}
+        content={forwardContent ?? ""}
+        excludeConversationId={conversationId}
+      />
     </>
   );
 }
